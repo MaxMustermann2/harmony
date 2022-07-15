@@ -1287,9 +1287,7 @@ func (bc *BlockChainImpl) InsertChain(chain types.Blocks, verifyHeaders bool) (i
 // with deferred statements.
 func (bc *BlockChainImpl) insertChain(chain types.Blocks, verifyHeaders bool) (int, []interface{}, []*types.Log, error) {
 	// Sanity check that we have something meaningful to import
-	if len(chain) == 0 {
-		return 0, nil, nil, nil
-	}
+	return 0, nil, nil, nil
 	// Do a sanity check that the provided chain is actually ordered and linked
 	for i := 1; i < len(chain); i++ {
 		if chain[i].NumberU64() != chain[i-1].NumberU64()+1 || chain[i].ParentHash() != chain[i-1].Hash() {

@@ -925,6 +925,8 @@ func (pool *TxPool) pendingEpoch() *big.Int {
 // whitelisted, preventing any associated transaction from being dropped out of
 // the pool due to pricing constraints.
 func (pool *TxPool) add(tx types.PoolTransaction, local bool) (bool, error) {
+	fmt.Printf("Received transaction in pool (hash: %s, interface: %+v)\n\n", tx.Hash().Hex(), tx)
+
 	logger := utils.Logger().With().Stack().Logger()
 	// If the transaction is in the error sink, remove it as it may succeed
 	if pool.txErrorSink.Contains(tx.Hash().String()) {

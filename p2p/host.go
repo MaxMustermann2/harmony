@@ -293,26 +293,27 @@ func (host *HostV2) GetOrJoin(topic string) (*libp2p_pubsub.Topic, error) {
 // It returns a nil error if and only if it has succeeded to schedule the given
 // message for sending.
 func (host *HostV2) SendMessageToGroups(groups []nodeconfig.GroupID, msg []byte) (err error) {
+	return nil
 
-	if len(msg) == 0 {
-		return errors.New("cannot send out empty message")
-	}
+	// if len(msg) == 0 {
+	// 	return errors.New("cannot send out empty message")
+	// }
 
-	for _, group := range groups {
-		t, e := host.GetOrJoin(string(group))
-		if e != nil {
-			err = e
-			continue
-		}
+	// for _, group := range groups {
+	// 	t, e := host.GetOrJoin(string(group))
+	// 	if e != nil {
+	// 		err = e
+	// 		continue
+	// 	}
 
-		e = t.Publish(context.Background(), msg)
-		if e != nil {
-			err = e
-			continue
-		}
-	}
+	// 	e = t.Publish(context.Background(), msg)
+	// 	if e != nil {
+	// 		err = e
+	// 		continue
+	// 	}
+	// }
 
-	return err
+	// return err
 }
 
 // AddPeer add p2p.Peer into Peerstore
