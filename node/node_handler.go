@@ -64,13 +64,14 @@ func (node *Node) HandleNodeMessage(
 	msgPayload []byte,
 	actionType proto_node.MessageType,
 ) error {
+	// fmt.Println("Here1", actionType)
 	switch actionType {
 	case proto_node.Transaction:
-		node.transactionMessageHandler(msgPayload)
+		// node.transactionMessageHandler(msgPayload)
 	case proto_node.Staking:
 		// node.stakingMessageHandler(msgPayload)
 	case proto_node.Block:
-		// switch blockMsgType := proto_node.BlockMessageType(msgPayload[0]); blockMsgType {
+		switch blockMsgType := proto_node.BlockMessageType(msgPayload[0]); blockMsgType {
 		// case proto_node.Sync:
 		// 	blocks := []*types.Block{}
 		// 	if err := rlp.DecodeBytes(msgPayload[1:], &blocks); err != nil {
@@ -91,14 +92,14 @@ func (node *Node) HandleNodeMessage(
 		// 			}
 		// 		}
 		// 	}
-		// case
-		// 	proto_node.SlashCandidate,
-		// 	proto_node.Receipt,
-		// 	proto_node.CrossLink,
-		// 	proto_node.CrosslinkHeartbeat:
-		// 	// skip first byte which is blockMsgType
-		// 	node.processSkippedMsgTypeByteValue(blockMsgType, msgPayload[1:])
-		// }
+		case
+			// proto_node.SlashCandidate,
+			// proto_node.Receipt,
+			proto_node.CrossLink:
+			// proto_node.CrosslinkHeartbeat:
+			// skip first byte which is blockMsgType
+			node.processSkippedMsgTypeByteValue(blockMsgType, msgPayload[1:])
+		}
 	default:
 		utils.Logger().Error().
 			Str("Unknown actionType", string(actionType))

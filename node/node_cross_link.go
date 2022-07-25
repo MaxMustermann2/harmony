@@ -1,6 +1,8 @@
 package node
 
 import (
+	"fmt"
+
 	common2 "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/harmony-one/harmony/core/types"
@@ -63,6 +65,19 @@ func (node *Node) ProcessCrossLinkHeartbeatMessage(msgPayload []byte) {
 
 // ProcessCrossLinkMessage verify and process Node/CrossLink message into crosslink when it's valid
 func (node *Node) ProcessCrossLinkMessage(msgPayload []byte) {
+	var crosslinks []types.CrossLink
+	if err := rlp.DecodeBytes(msgPayload, &crosslinks); err != nil {
+		utils.Logger().Error().
+			Err(err).
+			Msg("[ProcessingCrossLink] Crosslink Message Broadcast Unable to Decode")
+		return
+	}
+	for _, crosslink := range crosslinks {
+		if crosslink.ShardID() == 1 {
+			fmt.Printf("Received crosslink from shard %d with block number %d\n", crosslink.ShardID(), crosslink.BlockNum())
+		}
+	}
+	return
 	if node.IsRunningBeaconChain() {
 		pendingCLs, err := node.Blockchain().ReadPendingCrossLinks()
 		if err == nil && len(pendingCLs) >= maxPendingCrossLinkSize {
@@ -89,7 +104,9 @@ func (node *Node) ProcessCrossLinkMessage(msgPayload []byte) {
 			Msgf("[ProcessingCrossLink] Received crosslinks: %d", len(crosslinks))
 
 		for i, cl := range crosslinks {
-			if i > crossLinkBatchSize*2 { // A sanity check to prevent spamming
+			if i > crossLinkBatchSize*2 { // A sanity check to prevent spamming by malicious nodes
+				utils.Logger().Debug().
+					Msgf("[ProcessingCrossLink] Pending Crosslink exceeds 2 * batch size (%d): %d", crossLinkBatchSize*2, i)
 				break
 			}
 

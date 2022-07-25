@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/rlp"
 	harmonyconfig "github.com/harmony-one/harmony/internal/configs/harmony"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -417,54 +416,60 @@ func (node *Node) validateNodeMessage(ctx context.Context, payload []byte) (
 		// nothing much to validate staking message unless decode the RLP
 		nodeNodeMessageCounterVec.With(prometheus.Labels{"type": "staking_tx"}).Inc()
 	case proto_node.Block:
+		// fmt.Println("Validating block message")
 		switch proto_node.BlockMessageType(payload[p2pNodeMsgPrefixSize]) {
-		case proto_node.Sync:
-			nodeNodeMessageCounterVec.With(prometheus.Labels{"type": "block_sync"}).Inc()
+		// case proto_node.Sync:
+		// 	nodeNodeMessageCounterVec.With(prometheus.Labels{"type": "block_sync"}).Inc()
 
-			// checks whether the beacon block is larger than current block number
-			blocksPayload := payload[p2pNodeMsgPrefixSize+1:]
-			var blocks []*types.Block
-			if err := rlp.DecodeBytes(blocksPayload, &blocks); err != nil {
-				return nil, 0, errors.Wrap(err, "block decode error")
-			}
-			curBeaconHeight := node.Beaconchain().CurrentBlock().NumberU64()
-			for _, block := range blocks {
-				// Ban blocks number that is smaller than tolerance
-				if block.NumberU64()+beaconBlockHeightTolerance <= curBeaconHeight {
-					utils.Logger().Debug().Uint64("receivedNum", block.NumberU64()).
-						Uint64("currentNum", curBeaconHeight).Msg("beacon block sync message rejected")
-					return nil, 0, errors.New("beacon block height smaller than current height beyond tolerance")
-				} else if block.NumberU64()-beaconBlockHeightTolerance > curBeaconHeight {
-					utils.Logger().Debug().Uint64("receivedNum", block.NumberU64()).
-						Uint64("currentNum", curBeaconHeight).Msg("beacon block sync message rejected")
-					return nil, 0, errors.New("beacon block height too much higher than current height beyond tolerance")
-				} else if block.NumberU64() <= curBeaconHeight {
-					utils.Logger().Debug().Uint64("receivedNum", block.NumberU64()).
-						Uint64("currentNum", curBeaconHeight).Msg("beacon block sync message ignored")
-					return nil, 0, errIgnoreBeaconMsg
-				}
-			}
+		// 	// checks whether the beacon block is larger than current block number
+		// 	blocksPayload := payload[p2pNodeMsgPrefixSize+1:]
+		// 	var blocks []*types.Block
+		// 	if err := rlp.DecodeBytes(blocksPayload, &blocks); err != nil {
+		// 		return nil, 0, errors.Wrap(err, "block decode error")
+		// 	}
+		// 	curBeaconHeight := node.Beaconchain().CurrentBlock().NumberU64()
+		// 	for _, block := range blocks {
+		// 		// Ban blocks number that is smaller than tolerance
+		// 		if block.NumberU64()+beaconBlockHeightTolerance <= curBeaconHeight {
+		// 			utils.Logger().Debug().Uint64("receivedNum", block.NumberU64()).
+		// 				Uint64("currentNum", curBeaconHeight).Msg("beacon block sync message rejected")
+		// 			return nil, 0, errors.New("beacon block height smaller than current height beyond tolerance")
+		// 		} else if block.NumberU64()-beaconBlockHeightTolerance > curBeaconHeight {
+		// 			utils.Logger().Debug().Uint64("receivedNum", block.NumberU64()).
+		// 				Uint64("currentNum", curBeaconHeight).Msg("beacon block sync message rejected")
+		// 			return nil, 0, errors.New("beacon block height too much higher than current height beyond tolerance")
+		// 		} else if block.NumberU64() <= curBeaconHeight {
+		// 			utils.Logger().Debug().Uint64("receivedNum", block.NumberU64()).
+		// 				Uint64("currentNum", curBeaconHeight).Msg("beacon block sync message ignored")
+		// 			return nil, 0, errIgnoreBeaconMsg
+		// 		}
+		// 	}
 
-			// only non-beacon nodes process the beacon block sync messages
-			if node.Blockchain().ShardID() == shard.BeaconChainShardID {
-				return nil, 0, errIgnoreBeaconMsg
-			}
+		// 	// only non-beacon nodes process the beacon block sync messages
+		// 	if node.Blockchain().ShardID() == shard.BeaconChainShardID {
+		// 		return nil, 0, errIgnoreBeaconMsg
+		// 	}
 
-		case proto_node.SlashCandidate:
-			nodeNodeMessageCounterVec.With(prometheus.Labels{"type": "slash"}).Inc()
-			// only beacon chain node process slash candidate messages
-			if !node.IsRunningBeaconChain() {
-				return nil, 0, errIgnoreBeaconMsg
-			}
-		case proto_node.Receipt:
-			nodeNodeMessageCounterVec.With(prometheus.Labels{"type": "node_receipt"}).Inc()
+		// case proto_node.SlashCandidate:
+		// 	nodeNodeMessageCounterVec.With(prometheus.Labels{"type": "slash"}).Inc()
+		// 	// only beacon chain node process slash candidate messages
+		// 	if !node.IsRunningBeaconChain() {
+		// 		return nil, 0, errIgnoreBeaconMsg
+		// 	}
+		// case proto_node.Receipt:
+		// 	nodeNodeMessageCounterVec.With(prometheus.Labels{"type": "node_receipt"}).Inc()
 		case proto_node.CrossLink:
+			// fmt.Println("Validating cross link message")
 			nodeNodeMessageCounterVec.With(prometheus.Labels{"type": "crosslink"}).Inc()
 			// only beacon chain node process crosslink messages
-			if !node.IsRunningBeaconChain() ||
-				node.NodeConfig.Role() == nodeconfig.ExplorerNode {
+			if !node.IsRunningBeaconChain() {
+				fmt.Println("Received cross link ignored as we are not beacon")
 				return nil, 0, errIgnoreBeaconMsg
 			}
+			// if node.NodeConfig.Role() == nodeconfig.ExplorerNode {
+			// 	fmt.Println("Invalid as explorer")
+			// 	return nil, 0, errIgnoreBeaconMsg
+			// }
 		case proto_node.CrosslinkHeartbeat:
 			nodeNodeMessageCounterVec.With(prometheus.Labels{"type": "crosslink_heartbeat"}).Inc()
 		default:
@@ -649,6 +654,7 @@ func (node *Node) StartPubSub() error {
 			if err != nil {
 				return err
 			}
+			fmt.Println("Joined pubsub topic", string(key))
 			allTopics = append(
 				allTopics, u{
 					NamedTopic:     p2p.NamedTopic{Name: string(key), Topic: topicHandle},
@@ -697,6 +703,8 @@ func (node *Node) StartPubSub() error {
 
 		topicNamed := allTopics[i].Name
 		isConsensusBound := allTopics[i].consensusBound
+
+		fmt.Println("Subscribed to topic", topicNamed)
 
 		utils.Logger().Info().
 			Str("topic", topicNamed).
