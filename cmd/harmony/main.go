@@ -373,6 +373,38 @@ func setupNodeAndRun(hc harmonyconfig.HarmonyConfig) {
 		}
 	}
 
+	{
+		fmt.Println("Counting stale delegations")
+		countStale := uint64(0)
+		countTotal := uint64(0)
+		chain := currentNode.Beaconchain()
+		validators, err := chain.ReadValidatorList()
+		if err != nil {
+			panic(err)
+		}
+		state, err := chain.State()
+		if err != nil {
+			panic(err)
+		}
+		for _, validator := range validators {
+			wrapper, err := state.ValidatorWrapper(validator, true, false)
+			if err != nil {
+				panic(err)
+			}
+			for _, delegation := range wrapper.Delegations {
+				countTotal++
+				if delegation.Amount.Cmp(ethCommon.Big0) == 0 &&
+					len(delegation.Undelegations) == 0 &&
+					delegation.Reward.Cmp(ethCommon.Big0) == 0 {
+					countStale++
+				}
+			}
+		}
+		fmt.Println("Stale delegations are", countStale)
+		fmt.Println("Total delegations are", countTotal)
+		os.Exit(5)
+	}
+
 	startMsg := "==== New Harmony Node ===="
 	if hc.General.NodeType == nodeTypeExplorer {
 		startMsg = "==== New Explorer Node ===="
