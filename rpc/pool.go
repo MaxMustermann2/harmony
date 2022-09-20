@@ -67,12 +67,24 @@ func (s *PublicPoolService) wait(limiter *rate.Limiter, ctx context.Context) err
 func (s *PublicPoolService) SendRawTransaction(
 	ctx context.Context, encodedTx hexutil.Bytes,
 ) (common.Hash, error) {
+	utils.Logger().Debug().
+		Msg("[SendRawTransaction] Start")
+	defer func() {
+		utils.Logger().Debug().
+			Msg("[SendRawTransaction] End")
+	}()
 	timer := DoMetricRPCRequest(SendRawTransaction)
 	defer DoRPCRequestDuration(SendRawTransaction, timer)
 
 	// DOS prevention
 	if len(encodedTx) >= types.MaxEncodedPoolTransactionSize {
 		err := errors.Wrapf(core.ErrOversizedData, "encoded tx size: %d", len(encodedTx))
+		utils.Logger().Warn().
+			Err(err).
+			Msgf(
+				"[SendRawTransaction] Transaction too large %d bytes",
+				len(encodedTx),
+			)
 		return common.Hash{}, err
 	}
 
@@ -82,6 +94,9 @@ func (s *PublicPoolService) SendRawTransaction(
 	if s.version == Eth {
 		ethTx := new(types.EthTransaction)
 		if err := rlp.DecodeBytes(encodedTx, ethTx); err != nil {
+			utils.Logger().Warn().
+				Err(err).
+				Msg("[SendRawTransaction] Eth transaction not decoded")
 			return common.Hash{}, err
 		}
 		txHash = ethTx.Hash()
@@ -89,19 +104,43 @@ func (s *PublicPoolService) SendRawTransaction(
 	} else {
 		tx = new(types.Transaction)
 		if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
+			utils.Logger().Warn().
+				Err(err).
+				Msg("[SendRawTransaction] Hmy transaction not decoded")
 			return common.Hash{}, err
 		}
 		txHash = tx.Hash()
 	}
+	var value string
+	sender, err := tx.SenderAddress()
+	if err != nil {
+		value = "Unknown"
+	} else {
+		value = sender.Hex()
+	}
 
 	// Verify chainID
 	if err := s.verifyChainID(tx); err != nil {
+		utils.Logger().Warn().
+			Err(err).
+			Str("fullhash", tx.Hash().Hex()).
+			Str("hashByType", tx.HashByType().Hex()).
+			Str("sender", value).
+			Msg("[SendRawTransaction] ChainID not verified")
 		return common.Hash{}, err
 	}
 
 	// Submit transaction
 	if err := s.hmy.SendTx(ctx, tx); err != nil {
-		utils.Logger().Warn().Err(err).Msg("Could not submit transaction")
+		utils.Logger().Warn().
+			Err(err).
+			Str("fullhash", tx.Hash().Hex()).
+			Str("hashByType", tx.HashByType().Hex()).
+			Str("sender", value).
+			Msg("[SendRawTransaction] Could not submit transaction")
+		// eth/rpc/service.go takes care of the result + error combination
+		// only returning the error to the end user
+		// but there is an elastic rpc bug at the moment which cascades only the hash
 		return txHash, err
 	}
 
@@ -115,21 +154,30 @@ func (s *PublicPoolService) SendRawTransaction(
 		}
 		from, err := types.Sender(signer, tx)
 		if err != nil {
+			// least likely to occur
+			utils.Logger().Warn().
+				Err(err).
+				Str("fullhash", tx.Hash().Hex()).
+				Str("hashByType", tx.HashByType().Hex()).
+				Str("sender", value).
+				Msg("[SendRawTransaction] Submitted contract creation with `from` error")
 			return common.Hash{}, err
 		}
 		addr := crypto.CreateAddress(from, tx.Nonce())
 		utils.Logger().Info().
 			Str("fullhash", tx.Hash().Hex()).
 			Str("hashByType", tx.HashByType().Hex()).
+			Str("sender", value).
 			Str("contract", common2.MustAddressToBech32(addr)).
-			Msg("Submitted contract creation")
+			Msg("[SendRawTransaction] Submitted contract creation")
 	} else {
 		utils.Logger().Info().
 			Str("fullhash", tx.Hash().Hex()).
 			Str("hashByType", tx.HashByType().Hex()).
+			Str("sender", value).
 			Str("recipient", tx.To().Hex()).
 			Interface("tx", tx).
-			Msg("Submitted transaction")
+			Msg("[SendRawTransaction] Submitted transaction")
 	}
 
 	// Response output is the same for all versions
