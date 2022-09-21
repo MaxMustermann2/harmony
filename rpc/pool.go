@@ -68,9 +68,11 @@ func (s *PublicPoolService) SendRawTransaction(
 	ctx context.Context, encodedTx hexutil.Bytes,
 ) (common.Hash, error) {
 	utils.Logger().Debug().
+		Str("raw", encodedTx.String()).
 		Msg("[SendRawTransaction] Start")
 	defer func() {
 		utils.Logger().Debug().
+			Str("raw", encodedTx.String()).
 			Msg("[SendRawTransaction] End")
 	}()
 	timer := DoMetricRPCRequest(SendRawTransaction)
@@ -81,6 +83,7 @@ func (s *PublicPoolService) SendRawTransaction(
 		err := errors.Wrapf(core.ErrOversizedData, "encoded tx size: %d", len(encodedTx))
 		utils.Logger().Warn().
 			Err(err).
+			Str("raw", encodedTx.String()).
 			Msgf(
 				"[SendRawTransaction] Transaction too large %d bytes",
 				len(encodedTx),
@@ -96,6 +99,7 @@ func (s *PublicPoolService) SendRawTransaction(
 		if err := rlp.DecodeBytes(encodedTx, ethTx); err != nil {
 			utils.Logger().Warn().
 				Err(err).
+				Str("raw", encodedTx.String()).
 				Msg("[SendRawTransaction] Eth transaction not decoded")
 			return common.Hash{}, err
 		}
@@ -106,6 +110,7 @@ func (s *PublicPoolService) SendRawTransaction(
 		if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 			utils.Logger().Warn().
 				Err(err).
+				Str("raw", encodedTx.String()).
 				Msg("[SendRawTransaction] Hmy transaction not decoded")
 			return common.Hash{}, err
 		}
@@ -123,6 +128,7 @@ func (s *PublicPoolService) SendRawTransaction(
 	if err := s.verifyChainID(tx); err != nil {
 		utils.Logger().Warn().
 			Err(err).
+			Str("raw", encodedTx.String()).
 			Str("fullhash", tx.Hash().Hex()).
 			Str("hashByType", tx.HashByType().Hex()).
 			Str("sender", value).
@@ -134,6 +140,7 @@ func (s *PublicPoolService) SendRawTransaction(
 	if err := s.hmy.SendTx(ctx, tx); err != nil {
 		utils.Logger().Warn().
 			Err(err).
+			Str("raw", encodedTx.String()).
 			Str("fullhash", tx.Hash().Hex()).
 			Str("hashByType", tx.HashByType().Hex()).
 			Str("sender", value).
@@ -157,6 +164,7 @@ func (s *PublicPoolService) SendRawTransaction(
 			// least likely to occur
 			utils.Logger().Warn().
 				Err(err).
+				Str("raw", encodedTx.String()).
 				Str("fullhash", tx.Hash().Hex()).
 				Str("hashByType", tx.HashByType().Hex()).
 				Str("sender", value).
@@ -165,6 +173,7 @@ func (s *PublicPoolService) SendRawTransaction(
 		}
 		addr := crypto.CreateAddress(from, tx.Nonce())
 		utils.Logger().Info().
+			Str("raw", encodedTx.String()).
 			Str("fullhash", tx.Hash().Hex()).
 			Str("hashByType", tx.HashByType().Hex()).
 			Str("sender", value).
@@ -172,6 +181,7 @@ func (s *PublicPoolService) SendRawTransaction(
 			Msg("[SendRawTransaction] Submitted contract creation")
 	} else {
 		utils.Logger().Info().
+			Str("raw", encodedTx.String()).
 			Str("fullhash", tx.Hash().Hex()).
 			Str("hashByType", tx.HashByType().Hex()).
 			Str("sender", value).
