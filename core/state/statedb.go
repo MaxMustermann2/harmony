@@ -257,6 +257,15 @@ func (db *DB) GetNonce(addr common.Address) uint64 {
 	return 0
 }
 
+// GetCrossShardNonce ...
+func (db *DB) GetCrossShardNonce(addr common.Address) uint64 {
+	stateObject := db.getStateObject(addr)
+	if stateObject != nil {
+		return stateObject.CrossShardNonce(db.db)
+	}
+	return 0
+}
+
 // TxIndex returns the current transaction index set by Prepare.
 func (db *DB) TxIndex() int {
 	return db.txIndex
@@ -405,6 +414,14 @@ func (db *DB) SetNonce(addr common.Address, nonce uint64) {
 	stateObject := db.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetNonce(nonce)
+	}
+}
+
+// SetCrossShardNonce ...
+func (db *DB) SetCrossShardNonce(addr common.Address, nonce uint64) {
+	stateObject := db.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		stateObject.SetCrossShardNonce(db.db, nonce)
 	}
 }
 

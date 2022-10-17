@@ -44,7 +44,7 @@ func (node *Node) BroadcastCXReceipts(newBlock *types.Block) {
 	}
 }
 
-// BroadcastCXReceiptsWithShardID broadcasts cross shard receipts to given ToShardID
+// BroadcastCXReceiptsWithShardID broadcasts cross shard receipts to given ToShardID in given block
 func (node *Node) BroadcastCXReceiptsWithShardID(block *types.Block, commitSig []byte, commitBitmap []byte, toShardID uint32) {
 	myShardID := node.Consensus.ShardID
 	utils.Logger().Debug().
@@ -161,6 +161,9 @@ func (node *Node) verifyIncomingReceipts(block *types.Block) error {
 }
 
 // ProcessReceiptMessage store the receipts and merkle proof in local data store
+// Each time a new block consensus is produced, the leader (and 1% validators)
+// will broadcast the (signed) CXReceipts to the destination shards. This function
+// will process them.
 func (node *Node) ProcessReceiptMessage(msgPayload []byte) {
 	cxp := types.CXReceiptsProof{}
 	if err := rlp.DecodeBytes(msgPayload, &cxp); err != nil {

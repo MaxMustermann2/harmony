@@ -63,6 +63,7 @@ type (
 	// Used for migrating delegations via the staking precompile
 	//MigrateDelegationsFunc    func(db StateDB, migrationMsg *stakingTypes.MigrationMsg) ([]interface{}, error)
 	CalculateMigrationGasFunc func(db StateDB, migrationMsg *stakingTypes.MigrationMsg, homestead bool, istanbul bool) (uint64, error)
+	EmitCXReceiptFunc         func(*types.CXReceipt) error
 )
 
 // run runs the given contract and takes care of running precompiles with a fallback to the byte code interpreter.
@@ -181,6 +182,9 @@ type Context struct {
 
 	ShardID   uint32 // Used by staking and cross shard transfer precompile
 	NumShards uint32 // Used by cross shard transfer precompile
+
+	// Emit a cross-shard receipt to be sent when this transaction commits
+	EmitCXReceipt EmitCXReceiptFunc
 }
 
 // EVM is the Ethereum Virtual Machine base object and provides
@@ -221,7 +225,6 @@ type EVM struct {
 	// stored temporarily by stakingPrecompile and cleared immediately after return
 	// (although the EVM object itself is ephemeral)
 	StakeMsgs []stakingTypes.StakeMsg
-	CXReceipt *types.CXReceipt
 }
 
 // NewEVM returns a new EVM. The returned EVM is not thread safe and should
@@ -589,9 +592,19 @@ func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.I
 //
 // The different between Create2 with Create is Create2 uses sha3(0xff ++ msg.sender ++ salt ++ sha3(init_code))[12:]
 // instead of the usual sender-and-nonce-hash as the address where the contract is initialized at.
-func (evm *EVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *big.Int, salt *big.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
+func (evm *EVM) Create2(
+	caller ContractRef,
+	code []byte,
+	gas uint64,
+	endowment *big.Int,
+	salt *big.Int,
+) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
 	codeAndHash := &codeAndHash{code: code}
-	contractAddr = crypto.CreateAddress2(caller.Address(), common.BigToHash(salt), codeAndHash.Hash().Bytes())
+	contractAddr = crypto.CreateAddress2(
+		caller.Address(),
+		common.BigToHash(salt),
+		codeAndHash.Hash().Bytes(),
+	)
 	return evm.create(caller, codeAndHash, gas, endowment, contractAddr)
 }
 

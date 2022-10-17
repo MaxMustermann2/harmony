@@ -16,7 +16,6 @@ import (
 
 // WriteCapablePrecompiledContractsStaking lists out the write capable precompiled contracts
 // which are available after the StakingPrecompileEpoch
-// for now, we have only one contract at 252 or 0xfc - which is the staking precompile
 var WriteCapablePrecompiledContractsStaking = map[common.Address]WriteCapablePrecompiledContract{
 	common.BytesToAddress([]byte{252}): &stakingPrecompile{},
 }
@@ -230,21 +229,18 @@ func (c *crossShardXferPrecompile) RunWriteCapable(
 	contract *Contract,
 	input []byte,
 ) ([]byte, error) {
-	// make sure that cxReceipt is already nil to
-	// prevent multiple calls to the precompile
-	// in the same transaction
-	if evm.CXReceipt != nil {
-		return nil, errors.New("cannot call cross shard precompile again in same tx")
-	}
 	fromAddress, toAddress, fromShardID, toShardID, value, err :=
 		parseCrossShardXferData(evm, contract, input)
 	if err != nil {
 		return nil, err
 	}
-	// validate not a contract (toAddress can still be a contract)
-	if len(evm.StateDB.GetCode(fromAddress)) > 0 && !evm.IsValidator(evm.StateDB, fromAddress) {
-		return nil, errors.New("cross shard xfer not yet implemented for contracts")
-	}
+	// Below isn't reliable if in the process of contract creation
+	// Implementing checks deep within the EVM stack is also not possible
+	// So remove the check
+	// // validate not a contract (toAddress can still be a contract)
+	// if len(evm.StateDB.GetCode(fromAddress)) > 0 && !evm.IsValidator(evm.StateDB, fromAddress) {
+	// 	return nil, errors.New("cross shard xfer not yet implemented for contracts")
+	// }
 	// can't have too many shards
 	if toShardID >= evm.Context.NumShards {
 		return nil, errors.New("toShardId out of bounds")
@@ -267,13 +263,13 @@ func (c *crossShardXferPrecompile) RunWriteCapable(
 	// note that the transaction hash is added by state_processor.go to this receipt
 	// and that the receiving shard does not care about the `From` but we use the original
 	// instead of the precompile address for consistency
-	evm.CXReceipt = &types.CXReceipt{
+	evm.EmitCXReceipt(&types.CXReceipt{
 		From:      fromAddress,
 		To:        &toAddress,
 		ShardID:   fromShardID,
 		ToShardID: toShardID,
 		Amount:    value,
-	}
+	})
 	return nil, nil
 }
 

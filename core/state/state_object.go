@@ -18,6 +18,7 @@ package state
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"math/big"
@@ -29,6 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 
+	"github.com/harmony-one/harmony/core/vm/router"
 	"github.com/harmony-one/harmony/staking"
 )
 
@@ -474,4 +476,22 @@ func (s *Object) Value() *big.Int {
 func (s *Object) IsValidator(db Database) bool {
 	value := s.GetState(db, staking.IsValidatorKey)
 	return value != (common.Hash{})
+}
+
+// CrossShardNonce returns the cross shard nonce, starting from 0
+// varies by sending shard
+func (s *Object) CrossShardNonce(db Database) uint64 {
+	value := s.GetState(db, router.CrossShardNonceKey)
+	if (value == common.Hash{}) {
+		return 0
+	} else {
+		return binary.BigEndian.Uint64(value[:8])
+	}
+}
+
+// SetCrossShardNonce sets the cross shard nonce
+func (s *Object) SetCrossShardNonce(db Database, nonce uint64) {
+	buf := common.Hash{}
+	binary.BigEndian.PutUint64(buf[:8], nonce)
+	s.SetState(db, router.CrossShardNonceKey, buf)
 }

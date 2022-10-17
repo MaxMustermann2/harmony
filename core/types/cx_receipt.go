@@ -14,12 +14,26 @@ import (
 
 // CXReceipt represents a receipt for cross-shard transaction
 type CXReceipt struct {
-	TxHash    common.Hash // hash of the cross shard transaction in source shard
+	// hash of the cross shard transaction in source shard
+	// note that this is not used as a key anywhere, only the block is
+	TxHash    common.Hash
 	From      common.Address
 	To        *common.Address
 	ShardID   uint32
 	ToShardID uint32
 	Amount    *big.Int
+	// Cross shard smart contract communication
+	GasBudget     *big.Int
+	GasLeftoverTo common.Address
+	GasLimit      uint64
+	GasPrice      *big.Int
+	// On the receiving shard router, Nonce
+	// needs to be recorded as a combination
+	// of `From` and (from)`ShardID`
+	// so that these are processed in the
+	// correct order
+	Nonce   uint64
+	Payload []byte
 }
 
 // Copy makes a deep copy of the receiver.

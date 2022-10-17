@@ -2317,7 +2317,14 @@ func (bc *BlockChainImpl) ReadCXReceipts(shardID uint32, blockNum uint64, blockH
 }
 
 func (bc *BlockChainImpl) CXMerkleProof(toShardID uint32, block *types.Block) (*types.CXMerkleProof, error) {
-	proof := &types.CXMerkleProof{BlockNum: block.Number(), BlockHash: block.Hash(), ShardID: block.ShardID(), CXReceiptHash: block.Header().OutgoingReceiptHash(), CXShardHashes: []common.Hash{}, ShardIDs: []uint32{}}
+	proof := &types.CXMerkleProof{
+		BlockNum:      block.Number(),
+		BlockHash:     block.Hash(),
+		ShardID:       block.ShardID(),
+		CXReceiptHash: block.Header().OutgoingReceiptHash(),
+		CXShardHashes: []common.Hash{},
+		ShardIDs:      []uint32{},
+	}
 
 	epoch := block.Header().Epoch()
 	shardingConfig := shard.Schedule.InstanceForEpoch(epoch)
@@ -3282,6 +3289,7 @@ var (
 //  3. Corrupted db data. (leveldb.errors.ErrCorrupted)
 //  4. OS error when open file (too many open files, ...)
 //  5. OS error when write file (read-only, not enough disk space, ...)
+//
 // Among all the above leveldb errors, only `too many open files` error is known to be recoverable,
 // thus the unrecoverable errors refers to error that is
 //  1. The error is from the lower storage level (from module leveldb)

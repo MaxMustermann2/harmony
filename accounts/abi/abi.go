@@ -286,7 +286,7 @@ func ParseAddressFromKey(args map[string]interface{}, key string) (common.Addres
 	if address, ok := args[key].(common.Address); ok {
 		return address, nil
 	} else {
-		return common.Address{}, errors.Errorf("Cannot parse address from %v", args[key])
+		return common.Address{}, errors.Errorf("cannot parse address from %v", args[key])
 	}
 }
 
@@ -296,18 +296,38 @@ func ParseBigIntFromKey(args map[string]interface{}, key string) (*big.Int, erro
 	bigInt, ok := args[key].(*big.Int)
 	if !ok {
 		return nil, errors.Errorf(
-			"Cannot parse BigInt from %v", args[key])
+			"cannot parse BigInt from %v", args[key])
 	} else {
 		return bigInt, nil
 	}
 }
 
-// ParseUint32FromKey pulls out the uint64 value from a map with provided key,
+// ParseUint32FromKey pulls out the uint32 value from a map with provided key,
 // and validates the data type for it
 func ParseUint32FromKey(args map[string]interface{}, key string) (uint32, error) {
 	if val, ok := args[key].(uint32); ok {
 		return val, nil
 	} else {
-		return 0, errors.Errorf("Cannot parse uint32 from %v", args[key])
+		return 0, errors.Errorf("cannot parse uint32 from %v", args[key])
+	}
+}
+
+// ParseUint64FromKey pulls out the uint64 value from a map with provided key,
+// and validates the data type for it
+func ParseUint64FromKey(args map[string]interface{}, key string) (uint64, error) {
+	if val, ok := args[key].(uint64); ok {
+		return val, nil
+	} else {
+		return 0, errors.Errorf("cannot parse uint64 from %v", args[key])
+	}
+}
+
+// ParseBytesFromKey pulls out the []byte value from a map with provided key,
+// and validates the data type for it
+func ParseBytesFromKey(args map[string]interface{}, key string) ([]byte, error) {
+	if val, ok := args[key].([]byte); ok {
+		return val, nil
+	} else {
+		return []byte{}, errors.Errorf("cannot parse []byte from %v", args[key])
 	}
 }

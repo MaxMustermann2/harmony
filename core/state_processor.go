@@ -122,19 +122,15 @@ func (p *StateProcessor) Process(
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
-		receipt, cxReceipt, stakeMsgs, _, err := ApplyTransaction(
+		receipt, cxReceipts, stakeMsgs, _, err := ApplyTransaction(
 			p.config, p.bc, &beneficiary, gp, statedb, header, tx, usedGas, cfg,
 		)
 		if err != nil {
 			return nil, nil, nil, nil, 0, nil, statedb, err
 		}
 		receipts = append(receipts, receipt)
-		if cxReceipt != nil {
-			outcxs = append(outcxs, cxReceipt)
-		}
-		if len(stakeMsgs) > 0 {
-			blockStakeMsgs = append(blockStakeMsgs, stakeMsgs...)
-		}
+		outcxs = append(outcxs, cxReceipts...)
+		blockStakeMsgs = append(blockStakeMsgs, stakeMsgs...)
 		allLogs = append(allLogs, receipt.Logs...)
 	}
 	utils.Logger().Debug().Int64("elapsed time", time.Now().Sub(startTime).Milliseconds()).Msg("Process Normal Txns")
@@ -230,7 +226,22 @@ func getTransactionType(
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
-func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.DB, header *block.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, *types.CXReceipt, []staking.StakeMsg, uint64, error) {
+func ApplyTransaction(
+	config *params.ChainConfig,
+	bc ChainContext,
+	author *common.Address,
+	gp *GasPool,
+	statedb *state.DB,
+	header *block.Header,
+	tx *types.Transaction,
+	usedGas *uint64,
+	cfg vm.Config,
+) (*types.Receipt,
+	types.CXReceipts,
+	[]staking.StakeMsg,
+	uint64,
+	error,
+) {
 	txType := getTransactionType(config, header, tx)
 	if txType == types.InvalidTx {
 		return nil, nil, nil, 0, errors.New("Invalid Transaction Type")
@@ -296,36 +307,36 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	}
 	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
 
-	var cxReceipt *types.CXReceipt
-	// Do not create cxReceipt if EVM call failed
-	if txType == types.SubtractionOnly && !failedExe {
-		if vmenv.CXReceipt != nil {
-			return nil, nil, nil, 0, errors.New("cannot have cross shard receipt via precompile and directly")
-		}
-		cxReceipt = &types.CXReceipt{
-			TxHash:    tx.Hash(),
-			From:      msg.From(),
-			To:        msg.To(),
-			ShardID:   tx.ShardID(),
-			ToShardID: tx.ToShardID(),
-			Amount:    msg.Value(),
-		}
-	} else {
-		if !failedExe {
-			if vmenv.CXReceipt != nil {
-				cxReceipt = vmenv.CXReceipt
-				// this tx.Hash needs to be the "original" tx.Hash
-				// since, in effect, we have added
-				// support for cross shard txs
-				// to eth txs
-				cxReceipt.TxHash = tx.HashByType()
+	var cxReceipts types.CXReceipts
+
+	// Do not create cxReceipts if EVM call failed
+	if !failedExe {
+		if txType == types.SubtractionOnly {
+			// "Traditional" cross shard balance transfer
+			if len(result.CXReceipts) > 0 {
+				return nil, nil, nil, 0,
+					errors.New("smart contract cx with regular cx")
+			}
+			cxReceipts = types.CXReceipts{
+				&types.CXReceipt{
+					TxHash:    tx.Hash(),
+					From:      msg.From(),
+					To:        msg.To(),
+					ShardID:   tx.ShardID(),
+					ToShardID: tx.ToShardID(),
+					Amount:    msg.Value(),
+				},
 			}
 		} else {
-			cxReceipt = nil
+			for _, cxReceipt := range result.CXReceipts {
+				// add the transaction hash manually
+				cxReceipt.TxHash = tx.HashByType()
+				cxReceipts = append(cxReceipts, cxReceipt)
+			}
 		}
 	}
 
-	return receipt, cxReceipt, vmenv.StakeMsgs, result.UsedGas, err
+	return receipt, cxReceipts, vmenv.StakeMsgs, result.UsedGas, err
 }
 
 // ApplyStakingTransaction attempts to apply a staking transaction to the given state database
@@ -334,9 +345,19 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 // indicating the block was invalid.
 // staking transaction will use the code field in the account to store the staking information
 func ApplyStakingTransaction(
-	config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.DB,
-	header *block.Header, tx *staking.StakingTransaction, usedGas *uint64, cfg vm.Config) (receipt *types.Receipt, gas uint64, err error) {
-
+	config *params.ChainConfig,
+	bc ChainContext,
+	author *common.Address,
+	gp *GasPool,
+	statedb *state.DB,
+	header *block.Header,
+	tx *staking.StakingTransaction,
+	usedGas *uint64,
+	cfg vm.Config,
+) (receipt *types.Receipt,
+	gas uint64,
+	err error,
+) {
 	msg, err := StakingToMessage(tx, header.Number())
 	if err != nil {
 		return nil, 0, err

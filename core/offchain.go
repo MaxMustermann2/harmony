@@ -46,6 +46,7 @@ func (bc *BlockChainImpl) CommitOffChainData(
 		shardingConfig := shard.Schedule.InstanceForEpoch(epoch)
 		shardNum := int(shardingConfig.NumShards())
 		for i := 0; i < shardNum; i++ {
+			// Write only outgoing receipts and not incoming
 			if i == int(block.ShardID()) {
 				continue
 			}
