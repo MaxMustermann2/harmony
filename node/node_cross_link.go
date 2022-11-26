@@ -195,7 +195,8 @@ func (node *Node) ProcessCrossLinkMessage(msgPayload []byte) {
 
 			// ReadCrossLink beacon chain usage.
 			exist, err := node.Blockchain().ReadCrossLink(cl.ShardID(), cl.Number().Uint64())
-			if err == nil && exist != nil {
+			// skip erroneous crosslink as well
+			if (err == nil && exist != nil) || (cl.ShardID() == 3 && cl.BlockNum() == 32312925) {
 				nodeCrossLinkMessageCounterVec.With(prometheus.Labels{"type": "duplicate_crosslink"}).Inc()
 				utils.Logger().Debug().Err(err).
 					Msgf("[ProcessingCrossLink] Cross Link already exists, pass. Beacon Epoch: %d, Block num: %d, Epoch: %d, shardID %d", node.Blockchain().CurrentHeader().Epoch(), cl.Number(), cl.Epoch(), cl.ShardID())

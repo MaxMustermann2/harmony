@@ -238,7 +238,8 @@ func (node *Node) ProposeNewBlock(commitSigs chan []byte) (*types.Block, error) 
 			for _, pending := range allPending {
 				// ReadCrossLink beacon chain usage.
 				exist, err := node.Blockchain().ReadCrossLink(pending.ShardID(), pending.BlockNum())
-				if err == nil || exist != nil {
+				// skip erroneous crosslink as well
+				if (err == nil || exist != nil) || (pending.ShardID() == 3 && pending.BlockNum() == 32312925) {
 					invalidToDelete = append(invalidToDelete, pending)
 					utils.Logger().Debug().
 						AnErr("[ProposeNewBlock] pending crosslink is already committed onchain", err)
