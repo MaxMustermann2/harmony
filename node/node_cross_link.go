@@ -1,6 +1,7 @@
 package node
 
 import (
+	"fmt"
 	"math/big"
 
 	common2 "github.com/ethereum/go-ethereum/common"
@@ -165,6 +166,13 @@ func (node *Node) ProcessCrossLinkMessage(msgPayload []byte) {
 
 		existingCLs := map[common2.Hash]struct{}{}
 		for _, pending := range pendingCLs {
+			// drop offending CL from existing
+			if pending.ShardID() == 3 && pending.BlockNum() == 32312925 {
+				// drop it permanently
+				_, err := node.Blockchain().DeleteFromPendingCrossLinks([]types.CrossLink{pending})
+				fmt.Println("Removed offending crosslink from pending", err)
+				continue
+			}
 			existingCLs[pending.Hash()] = struct{}{}
 		}
 
@@ -214,8 +222,8 @@ func (node *Node) ProcessCrossLinkMessage(msgPayload []byte) {
 			candidates = append(candidates, cl)
 			nodeCrossLinkMessageCounterVec.With(prometheus.Labels{"type": "new_crosslink"}).Inc()
 
-			utils.Logger().Debug().
-				Msgf("[ProcessingCrossLink] Committing for shardID %d, blockNum %d",
+			utils.Logger().Info().
+				Msgf("[ProcessingCrossLink] Committing to pending for shardID %d, blockNum %d",
 					cl.ShardID(), cl.Number().Uint64(),
 				)
 		}
